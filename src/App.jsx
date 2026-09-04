@@ -90,10 +90,6 @@ export default function AmortizationDashboard() {
     const monthlyRate = pRate / 100 / 12;
     const maxMonths = pTerm * 12;
 
-    // Effective Annual Rate (EAR) considering monthly compounding
-    const baseEffectiveRate =
-      pRate > 0 ? (Math.pow(1 + monthlyRate, 12) - 1) * 100 : 0;
-
     // Cash Flow Savings Math
     const hasCurrentLoan = pCurrentPI > 0 || pCurrentPMI > 0;
     const monthlyCashFlowSavings = hasCurrentLoan
@@ -154,9 +150,17 @@ export default function AmortizationDashboard() {
       });
     }
 
+    // 1. Calculate hypothetical monthly payment if accelerated interest was spread over the full term
+    const equivalentMonthlyPmt =
+      maxMonths > 0 ? (pAmt + accTotalInterest) / maxMonths : 0;
+
+    // 2. Reverse-engineer the interest rate for that payment
+    const equivalentTermRate =
+      pExtra > 0 ? calcAPR(pAmt, equivalentMonthlyPmt, maxMonths) : pRate;
+
     return {
       basePmt,
-      baseEffectiveRate,
+      equivalentTermRate,
       standardMonths,
       accMonths,
       monthsSaved: standardMonths - accMonths,
@@ -501,12 +505,24 @@ export default function AmortizationDashboard() {
             </div>
 
             <div style={{ ...cardStyle, borderTop: "4px solid #f97316" }}>
-              <div style={cardLabelStyle}>Effective Annual Rate</div>
+              <div style={cardLabelStyle}>Equivalent {term}-Yr Rate</div>
               <div style={cardValueStyle}>
-                {data.baseEffectiveRate > 0
-                  ? data.baseEffectiveRate.toFixed(3) + "%"
+                {data.equivalentTermRate > 0
+                  ? data.equivalentTermRate.toFixed(3) + "%"
                   : "0.000%"}
               </div>
+              {data.monthsSaved > 0 && (
+                <div
+                  style={{
+                    fontSize: "12px",
+                    color: "#d97706",
+                    marginTop: "4px",
+                    fontWeight: "600",
+                  }}
+                >
+                  *Based on total interest paid
+                </div>
+              )}
             </div>
 
             <div style={{ ...cardStyle, borderTop: "4px solid #ef4444" }}>
