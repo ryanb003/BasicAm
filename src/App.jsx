@@ -57,6 +57,25 @@ export default function AmortizationDashboard() {
     return y > 0 ? `${y} Yrs, ${m} Mos` : `${m} Mos`;
   };
 
+  // Iterative approach to find the effective APR including upfront costs (points)
+  const calcAPR = (netPrincipal, payment, months) => {
+    if (netPrincipal <= 0 || payment <= 0 || months <= 0) return 0;
+    let minRate = 0;
+    let maxRate = 1;
+    let guess = 0.005;
+    for (let i = 0; i < 50; i++) {
+      const pv = (payment * (1 - Math.pow(1 + guess, -months))) / guess;
+      if (Math.abs(pv - netPrincipal) < 0.001) break;
+      if (pv > netPrincipal) {
+        minRate = guess;
+      } else {
+        maxRate = guess;
+      }
+      guess = (minRate + maxRate) / 2;
+    }
+    return guess * 12 * 100;
+  };
+
   // --- Core Amortization Engine ---
   const data = useMemo(() => {
     const pAmt = Number(amount) || 0;
@@ -70,6 +89,10 @@ export default function AmortizationDashboard() {
     const basePmt = calcPMT(pRate, pTerm, pAmt);
     const monthlyRate = pRate / 100 / 12;
     const maxMonths = pTerm * 12;
+
+    // Effective Annual Rate (EAR) considering monthly compounding
+    const baseEffectiveRate =
+      pRate > 0 ? (Math.pow(1 + monthlyRate, 12) - 1) * 100 : 0;
 
     // Cash Flow Savings Math
     const hasCurrentLoan = pCurrentPI > 0 || pCurrentPMI > 0;
@@ -133,6 +156,7 @@ export default function AmortizationDashboard() {
 
     return {
       basePmt,
+      baseEffectiveRate,
       standardMonths,
       accMonths,
       monthsSaved: standardMonths - accMonths,
@@ -160,7 +184,11 @@ export default function AmortizationDashboard() {
       const be = sav > 0 ? c / sav : 0;
       const totalInt = termNew > 0 ? pmt * maxMonths - amtNew : 0;
       const intSaved = data.standardTotalInterest - totalInt;
-      return { pmt, sav, c, be, totalInt, intSaved };
+
+      // Calculate true APR by deducting upfront points cost from initial principal
+      const effectiveAPR = c > 0 ? calcAPR(amtNew - c, pmt, maxMonths) : r;
+
+      return { pmt, sav, c, be, totalInt, intSaved, effectiveAPR };
     };
 
     const opt1 = calcPointsOpt(opt1Rate, opt1Cost);
@@ -470,6 +498,15 @@ export default function AmortizationDashboard() {
             <div style={{ ...cardStyle, borderTop: "4px solid #3b82f6" }}>
               <div style={cardLabelStyle}>New Monthly P&I</div>
               <div style={cardValueStyle}>{formatCurrency(data.basePmt)}</div>
+            </div>
+
+            <div style={{ ...cardStyle, borderTop: "4px solid #f97316" }}>
+              <div style={cardLabelStyle}>Effective Annual Rate</div>
+              <div style={cardValueStyle}>
+                {data.baseEffectiveRate > 0
+                  ? data.baseEffectiveRate.toFixed(3) + "%"
+                  : "0.000%"}
+              </div>
             </div>
 
             <div style={{ ...cardStyle, borderTop: "4px solid #ef4444" }}>
@@ -970,6 +1007,21 @@ export default function AmortizationDashboard() {
                       }}
                     >
                       {formatCurrency(col.optData.sav)}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: "10px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    <span style={{ color: "#6b7280" }}>Effective APR:</span>
+                    <span style={{ fontWeight: "bold" }}>
+                      {col.optData.effectiveAPR > 0
+                        ? col.optData.effectiveAPR.toFixed(3) + "%"
+                        : "N/A"}
                     </span>
                   </div>
                   <div
