@@ -445,7 +445,7 @@ export default function AmortizationDashboard() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
               gap: "15px",
               marginBottom: "25px",
             }}
